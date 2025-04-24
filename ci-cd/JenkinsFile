@@ -1,0 +1,28 @@
+
+pipeline {
+  agent any
+  stages {
+    stage('Build & Scan') {
+      steps {
+        sh 'docker build -t ${ECR_REPO}/app:${BUILD_ID} .'
+        sh 'trivy image --exit-code 1 --severity HIGH,CRITICAL ${ECR_REPO}/app:${BUILD_ID}'
+      }
+    }
+    stage('Deploy') {
+      when { 
+        expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+      }
+      steps {
+        sh 'aws ecr get-login-password | docker login --username AWS --password-stdin ${ECR_REPO}'
+        sh 'docker push ${ECR_REPO}/app:${BUILD_ID}'
+        sh 'kubectl set image deployment/app app=${ECR_REPO}/app:${BUILD_ID}'
+      }
+    }
+    stage('Runtime Protection') {
+      steps {
+        sh 'helm install falco falcosecurity/falco --set auditLog.enabled=true'
+        sh 'kubectl apply -f kubernetes/falco/alerts'
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+- rule: Shell in Container
+  desc: Detect shell access in running containers
+  condition: >
+    container.id != host and proc.name = bash
+  output: "Shell spawned in container (user=%user.name container=%container.id)"
+  priority: WARNING
+
+- rule: Unexpected Process
+  desc: Detect crypto miners
+  condition: >
+    spawned_process and proc.name in (xmrig, ccminer)
+  output: "Cryptomining process detected (command=%proc.cmdline)"
+  priority: CRITICAL
